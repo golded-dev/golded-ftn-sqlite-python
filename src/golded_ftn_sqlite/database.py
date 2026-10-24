@@ -221,6 +221,8 @@ class SqliteDatabase:
 def connect_database(
     path: Path, *, read_only: bool, timeout: float = 5.0
 ) -> sqlite3.Connection:
+    if not path.is_file():
+        raise FileNotFoundError(path)
     if read_only:
         connection = sqlite3.connect(
             f"{path.resolve().as_uri()}?mode=ro",

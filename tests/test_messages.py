@@ -393,7 +393,7 @@ def test_delete_hides_message_without_reusing_its_number(tmp_path: Path) -> None
             )
         )
         deleted = session.delete(first.identity, first.revision)
-        with pytest.raises(KeyError):
+        with pytest.raises(ConflictError, match="missing"):
             session.read(1)
         second = session.append(
             OutgoingMessage(

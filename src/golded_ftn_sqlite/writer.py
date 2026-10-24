@@ -251,7 +251,7 @@ class SqliteSession:
                 (area["id"], msgno),
             ).fetchone()
             if row is None:
-                raise KeyError(msgno)
+                raise ConflictError("SQLite message is missing")
             identity = _identity(self.path, area["code"], msgno)
             result = SessionMessage(
                 message=_message_from_row(connection, self.path, area, row),
@@ -284,7 +284,7 @@ class SqliteSession:
                 (area["id"], identity.msgno),
             ).fetchone()
             if row is None:
-                raise KeyError(identity.msgno)
+                raise ConflictError("SQLite message is missing")
             actual_identity = _identity(self.path, area["code"], identity.msgno)
             actual_revision = _revision(connection, row, actual_identity)
             if (
@@ -486,7 +486,7 @@ class SqliteSession:
                 (area["id"], identity.msgno),
             ).fetchone()
             if row is None:
-                raise KeyError(identity.msgno)
+                raise ConflictError("SQLite message is missing")
             actual_identity = _identity(self.path, area["code"], identity.msgno)
             actual_revision = _revision(connection, row, actual_identity)
             if (
