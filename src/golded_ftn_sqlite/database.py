@@ -24,20 +24,13 @@ CREATE TABLE areas (
     kind TEXT NOT NULL CHECK (kind IN ('netmail', 'echomail')),
     sort_order INTEGER NOT NULL DEFAULT 0,
     meta_key TEXT,
-    origin_zone INTEGER,
-    origin_net INTEGER,
-    origin_node INTEGER,
-    origin_point INTEGER,
-    origin_domain TEXT,
+    origin_address TEXT
+        CHECK (
+            origin_address IS NULL
+            OR (origin_address != '' AND origin_address = trim(origin_address))
+        ),
     next_message_number INTEGER NOT NULL DEFAULT 1
-        CHECK (next_message_number > 0),
-    CHECK (
-        (origin_zone IS NULL AND origin_net IS NULL AND origin_node IS NULL
-            AND origin_point IS NULL AND origin_domain IS NULL)
-        OR
-        (origin_zone >= 0 AND origin_net >= 0 AND origin_node >= 0
-            AND (origin_point IS NULL OR origin_point >= 0))
-    )
+        CHECK (next_message_number > 0)
 ) STRICT;
 
 CREATE TABLE messages (
@@ -51,16 +44,16 @@ CREATE TABLE messages (
     posted_at TEXT,
     external_id TEXT,
     attributes_raw INTEGER NOT NULL,
-    from_zone INTEGER,
-    from_net INTEGER,
-    from_node INTEGER,
-    from_point INTEGER,
-    from_domain TEXT,
-    to_zone INTEGER,
-    to_net INTEGER,
-    to_node INTEGER,
-    to_point INTEGER,
-    to_domain TEXT,
+    from_address TEXT
+        CHECK (
+            from_address IS NULL
+            OR (from_address != '' AND from_address = trim(from_address))
+        ),
+    to_address TEXT
+        CHECK (
+            to_address IS NULL
+            OR (to_address != '' AND to_address = trim(to_address))
+        ),
     reply_to_msgno INTEGER,
     reply1st_msgno INTEGER,
     reply_next_msgno INTEGER,
@@ -71,20 +64,6 @@ CREATE TABLE messages (
     revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
     deleted_at TEXT,
     UNIQUE (area_id, msgno),
-    CHECK (
-        (from_zone IS NULL AND from_net IS NULL AND from_node IS NULL
-            AND from_point IS NULL AND from_domain IS NULL)
-        OR
-        (from_zone >= 0 AND from_net >= 0 AND from_node >= 0
-            AND (from_point IS NULL OR from_point >= 0))
-    ),
-    CHECK (
-        (to_zone IS NULL AND to_net IS NULL AND to_node IS NULL
-            AND to_point IS NULL AND to_domain IS NULL)
-        OR
-        (to_zone >= 0 AND to_net >= 0 AND to_node >= 0
-            AND (to_point IS NULL OR to_point >= 0))
-    ),
     CHECK (
         source_type IS NOT NULL
         OR (source_path IS NULL AND source_id IS NULL AND source_offset IS NULL)
@@ -102,22 +81,15 @@ CREATE INDEX messages_external_id
 CREATE TRIGGER messages_netmail_addresses_insert
 BEFORE INSERT ON messages
 WHEN (SELECT kind FROM areas WHERE id = NEW.area_id) = 'netmail'
-    AND (
-        NEW.from_zone IS NULL OR NEW.from_net IS NULL OR NEW.from_node IS NULL
-        OR NEW.to_zone IS NULL OR NEW.to_net IS NULL OR NEW.to_node IS NULL
-    )
+    AND (NEW.from_address IS NULL OR NEW.to_address IS NULL)
 BEGIN
     SELECT RAISE(ABORT, 'netmail requires origin and destination addresses');
 END;
 
 CREATE TRIGGER messages_netmail_addresses_update
-BEFORE UPDATE OF area_id, from_zone, from_net, from_node,
-                 to_zone, to_net, to_node ON messages
+BEFORE UPDATE OF area_id, from_address, to_address ON messages
 WHEN (SELECT kind FROM areas WHERE id = NEW.area_id) = 'netmail'
-    AND (
-        NEW.from_zone IS NULL OR NEW.from_net IS NULL OR NEW.from_node IS NULL
-        OR NEW.to_zone IS NULL OR NEW.to_net IS NULL OR NEW.to_node IS NULL
-    )
+    AND (NEW.from_address IS NULL OR NEW.to_address IS NULL)
 BEGIN
     SELECT RAISE(ABORT, 'netmail requires origin and destination addresses');
 END;
@@ -151,6 +123,14 @@ CREATE TABLE reply_list_entries (
 """
 
 
+def format_address(address: FtnAddress | None) -> str | None:
+    return None if address is None else str(address)
+
+
+def parse_address(value: str | None) -> FtnAddress | None:
+    return None if value is None else FtnAddress.from_string(value)
+
+
 class SqliteDatabase:
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -178,14 +158,11 @@ class SqliteDatabase:
                 connection.execute("PRAGMA journal_mode = WAL")
                 connection.execute("PRAGMA synchronous = NORMAL")
                 connection.executescript(_SCHEMA)
-                origin = area.default_origin
                 connection.execute(
                     """
                     INSERT INTO areas (
-                        code, name, kind, sort_order, meta_key,
-                        origin_zone, origin_net, origin_node,
-                        origin_point, origin_domain
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        code, name, kind, sort_order, meta_key, origin_address
+                    ) VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
                         area.code,
@@ -193,11 +170,7 @@ class SqliteDatabase:
                         area.kind.value,
                         area.sort_order,
                         area.meta_key,
-                        origin.zone if origin is not None else None,
-                        origin.net if origin is not None else None,
-                        origin.node if origin is not None else None,
-                        origin.point if origin is not None else None,
-                        origin.domain if origin is not None else None,
+                        format_address(area.default_origin),
                     ),
                 )
         except BaseException:
@@ -206,15 +179,12 @@ class SqliteDatabase:
         return cls(database_path)
 
     def add_area(self, area: AreaDefinition) -> None:
-        origin = area.default_origin
         with sqlite3.connect(self.path) as connection:
             connection.execute(
                 """
                 INSERT INTO areas (
-                    code, name, kind, sort_order, meta_key,
-                    origin_zone, origin_net, origin_node,
-                    origin_point, origin_domain
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    code, name, kind, sort_order, meta_key, origin_address
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     area.code,
@@ -222,11 +192,7 @@ class SqliteDatabase:
                     area.kind.value,
                     area.sort_order,
                     area.meta_key,
-                    origin.zone if origin is not None else None,
-                    origin.net if origin is not None else None,
-                    origin.node if origin is not None else None,
-                    origin.point if origin is not None else None,
-                    origin.domain if origin is not None else None,
+                    format_address(area.default_origin),
                 ),
             )
 
@@ -234,37 +200,22 @@ class SqliteDatabase:
         with sqlite3.connect(self.path) as connection:
             rows = connection.execute(
                 """
-                SELECT code, name, kind, sort_order, meta_key,
-                       origin_zone, origin_net, origin_node,
-                       origin_point, origin_domain
+                SELECT code, name, kind, sort_order, meta_key, origin_address
                 FROM areas
                 ORDER BY id
                 """
             ).fetchall()
-        result = []
-        for row in rows:
-            origin = (
-                FtnAddress(
-                    zone=row[5],
-                    net=row[6],
-                    node=row[7],
-                    point=row[8],
-                    domain=row[9],
-                )
-                if row[5] is not None
-                else None
+        return tuple(
+            AreaDefinition(
+                code=row[0],
+                name=row[1],
+                kind=AreaKind(row[2]),
+                default_origin=parse_address(row[5]),
+                sort_order=row[3],
+                meta_key=row[4],
             )
-            result.append(
-                AreaDefinition(
-                    code=row[0],
-                    name=row[1],
-                    kind=AreaKind(row[2]),
-                    default_origin=origin,
-                    sort_order=row[3],
-                    meta_key=row[4],
-                )
-            )
-        return tuple(result)
+            for row in rows
+        )
 
 
 def connect_database(

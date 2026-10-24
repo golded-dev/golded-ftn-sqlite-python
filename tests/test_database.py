@@ -30,9 +30,7 @@ def test_create_single_area_database_is_a_readable_sqlite_format(
             connection.execute("PRAGMA user_version").fetchone()[0],
             connection.execute(
                 """
-                SELECT code, name, kind,
-                       origin_zone, origin_net, origin_node, origin_point,
-                       next_message_number
+                SELECT code, name, kind, origin_address, next_message_number
                 FROM areas
                 """
             ).fetchone(),
@@ -41,7 +39,7 @@ def test_create_single_area_database_is_a_readable_sqlite_format(
     assert observed == (
         0x47465453,
         1,
-        ("FIDO.GENERAL", "FidoNet General", "echomail", 2, 230, 0, None, 1),
+        ("FIDO.GENERAL", "FidoNet General", "echomail", "2:230/0", 1),
     )
 
 
@@ -137,5 +135,28 @@ def test_schema_rejects_netmail_without_complete_addresses(tmp_path: Path) -> No
                     area_id, msgno, from_name, to_name, subject, body_text,
                     attributes_raw
                 ) VALUES (1, 1, 'Alice', 'Bob', 'Invalid', 'No addresses', 0)
+                """
+            )
+
+
+def test_schema_rejects_blank_address_text(tmp_path: Path) -> None:
+    path = tmp_path / "blank-address.sqlite3"
+    SqliteDatabase.create(
+        path,
+        area=AreaDefinition(
+            code="FIDO.SQLITE",
+            name="SQLite",
+            kind=AreaKind.ECHOMAIL,
+        ),
+    )
+
+    with sqlite3.connect(path) as connection:
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                """
+                INSERT INTO messages (
+                    area_id, msgno, from_name, to_name, subject, body_text,
+                    attributes_raw, from_address
+                ) VALUES (1, 1, 'Alice', 'All', 'Blank', 'No', 0, '')
                 """
             )

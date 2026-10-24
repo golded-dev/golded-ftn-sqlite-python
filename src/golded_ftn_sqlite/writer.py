@@ -11,7 +11,6 @@ from typing import Self
 
 from golded_ftn import (
     ConflictError,
-    FtnAddress,
     MessageIdentity,
     MessagePatch,
     OutgoingMessage,
@@ -23,26 +22,8 @@ from golded_ftn import (
     WriterOptions,
 )
 
-from .database import connect_database, select_area
+from .database import connect_database, format_address, parse_address, select_area
 from .reader import _message_from_row
-
-
-def _address_values(address: FtnAddress | None) -> tuple[object, ...]:
-    if address is None:
-        return (None, None, None, None, None)
-    return (address.zone, address.net, address.node, address.point, address.domain)
-
-
-def _row_address(row: sqlite3.Row, prefix: str) -> FtnAddress | None:
-    if row[f"{prefix}_zone"] is None:
-        return None
-    return FtnAddress(
-        zone=row[f"{prefix}_zone"],
-        net=row[f"{prefix}_net"],
-        node=row[f"{prefix}_node"],
-        point=row[f"{prefix}_point"],
-        domain=row[f"{prefix}_domain"],
-    )
 
 
 def _identity(path: Path, area_code: str, msgno: int) -> MessageIdentity:
@@ -152,17 +133,7 @@ class SqliteSession:
         try:
             connection.execute("BEGIN IMMEDIATE")
             area = select_area(connection, self.area_code)
-            default_origin = (
-                FtnAddress(
-                    zone=area["origin_zone"],
-                    net=area["origin_net"],
-                    node=area["origin_node"],
-                    point=area["origin_point"],
-                    domain=area["origin_domain"],
-                )
-                if area["origin_zone"] is not None
-                else None
-            )
+            default_origin = parse_address(area["origin_address"])
             from_address = message.from_address or default_origin
             if area["kind"] == "netmail":
                 if from_address is None:
@@ -175,13 +146,11 @@ class SqliteSession:
                 INSERT INTO messages (
                     area_id, msgno, from_name, to_name, subject, body_text,
                     posted_at, external_id, attributes_raw,
-                    from_zone, from_net, from_node, from_point, from_domain,
-                    to_zone, to_net, to_node, to_point, to_domain,
+                    from_address, to_address,
                     reply_to_msgno, reply1st_msgno, reply_next_msgno,
                     source_type, source_path, source_id, source_offset
                 ) VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
                 """,
                 (
@@ -194,8 +163,8 @@ class SqliteSession:
                     message.posted_at.isoformat() if message.posted_at else None,
                     message.external_id,
                     message.attributes_raw if message.attributes_raw is not None else 0,
-                    *_address_values(from_address),
-                    *_address_values(message.to_address),
+                    format_address(from_address),
+                    format_address(message.to_address),
                     message.reply_to_msgno,
                     message.reply1st_msgno,
                     message.reply_next_msgno,
@@ -348,12 +317,12 @@ class SqliteSession:
                 else patch.external_id
             )
             from_address = (
-                _row_address(row, "from")
+                parse_address(row["from_address"])
                 if isinstance(patch.from_address, Unset)
                 else patch.from_address
             )
             to_address = (
-                _row_address(row, "to")
+                parse_address(row["to_address"])
                 if isinstance(patch.to_address, Unset)
                 else patch.to_address
             )
@@ -411,10 +380,7 @@ class SqliteSession:
                 UPDATE messages SET
                     from_name = ?, to_name = ?, subject = ?, body_text = ?,
                     posted_at = ?, external_id = ?, attributes_raw = ?,
-                    from_zone = ?, from_net = ?, from_node = ?,
-                    from_point = ?, from_domain = ?,
-                    to_zone = ?, to_net = ?, to_node = ?,
-                    to_point = ?, to_domain = ?,
+                    from_address = ?, to_address = ?,
                     reply_to_msgno = ?, reply1st_msgno = ?, reply_next_msgno = ?,
                     source_type = ?, source_path = ?, source_id = ?, source_offset = ?,
                     revision = revision + 1
@@ -428,8 +394,8 @@ class SqliteSession:
                     posted_at,
                     external_id,
                     attributes_raw,
-                    *_address_values(from_address),
-                    *_address_values(to_address),
+                    format_address(from_address),
+                    format_address(to_address),
                     reply_to_msgno,
                     reply1st_msgno,
                     reply_next_msgno,

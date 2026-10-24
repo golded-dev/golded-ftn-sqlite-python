@@ -62,7 +62,10 @@ client.
 ## SQLite format
 
 Schema version 1 uses SQLite application ID `0x47465453` (`GFTS`), strict tables,
-foreign keys and WAL journaling. The schema is public; see [the schema guide](docs/schema.md).
+foreign keys and WAL journaling. The schema is a public format contract:
+[docs/schema.md](docs/schema.md) documents identification, DDL, column semantics,
+allocation, soft delete, concurrency and backup so other packages or applications
+can implement the same database without this Python code.
 
 Do not copy an open WAL database as a lone `.sqlite3` file. Use SQLite's backup API
 or close/checkpoint it first.

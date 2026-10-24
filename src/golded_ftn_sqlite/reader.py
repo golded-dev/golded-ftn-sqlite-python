@@ -18,20 +18,6 @@ from golded_ftn import (
 from .database import connect_database, select_area
 
 
-def _address(row: sqlite3.Row, prefix: str) -> str | None:
-    zone = row[f"{prefix}_zone"]
-    if zone is None:
-        return None
-    result = f"{zone}:{row[f'{prefix}_net']}/{row[f'{prefix}_node']}"
-    point = row[f"{prefix}_point"]
-    domain = row[f"{prefix}_domain"]
-    if point is not None:
-        result += f".{point}"
-    if domain is not None:
-        result += f"@{domain}"
-    return result
-
-
 def _message_from_row(
     connection: sqlite3.Connection,
     database_path: Path,
@@ -92,8 +78,8 @@ def _message_from_row(
             else None
         ),
         external_id=row["external_id"],
-        from_address=_address(row, "from"),
-        to_address=_address(row, "to"),
+        from_address=row["from_address"],
+        to_address=row["to_address"],
         reply_to_msgno=row["reply_to_msgno"],
         reply1st_msgno=row["reply1st_msgno"],
         reply_next_msgno=row["reply_next_msgno"],

@@ -28,6 +28,10 @@ _Avoid_: Database row ID, MSGID
 The network-visible FTN `MSGID`, when present. It is data, not the database identity.
 _Avoid_: Message number, row ID
 
+**Address**:
+A canonical FTN address string (`zone:net/node[.point][@domain]`), stored as TEXT and mapped to a structured DTO in application code. Absent address is SQL NULL.
+_Avoid_: Split zone/net/node columns
+
 **Revision**:
 A token covering one stored message and its ordered metadata, used to reject stale updates and deletes.
 _Avoid_: Version number
