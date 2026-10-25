@@ -8,6 +8,16 @@ The format supports several areas in one database. The ordinary layout is still
 one database file per area: it maps cleanly to GoldED configuration, keeps backup
 and recovery local, and limits the blast radius when a disk has opinions.
 
+## Pipe with ftnt
+
+`ftnt` treats export envelopes as write input for every format, including SQLite:
+
+```sh
+ftnt create ./general.sqlite3 --format sqlite --area-code FIDO.GENERAL
+ftnt export ./general --format jam |
+  ftnt write ./general.sqlite3 --format sqlite --jsonl
+```
+
 ## Use it
 
 ```python
