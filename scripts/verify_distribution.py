@@ -25,7 +25,7 @@ def main() -> None:
         metadata_name = next(name for name in names if name.endswith("/METADATA"))
         metadata = email.message_from_bytes(archive.read(metadata_name))
         assert metadata["Name"] == "golded-ftn-sqlite"
-        assert metadata["Version"] == "0.1.0"
+        assert metadata["Version"] == "1.0.0"
         assert metadata["License-Expression"] == "MIT"
         assert any(name.endswith("/py.typed") for name in names)
         assert any(name.endswith("/licenses/LICENSE") for name in names)

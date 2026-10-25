@@ -1,5 +1,12 @@
 # golded-ftn-sqlite
 
+Repository: [`golded-ftn-sqlite-python`](https://github.com/golded-dev/golded-ftn-sqlite-python).
+Install version 1.0.0 with Python 3.12 or newer:
+
+```sh
+python -m pip install golded-ftn-sqlite==1.0.0
+```
+
 `golded-ftn-sqlite` stores FTN netmail and echomail in SQLite through the
 [`golded-ftn`](https://github.com/golded-dev/golded-ftn-python) message models.
 It requires Python 3.12 or newer.
@@ -93,5 +100,3 @@ uv build
 uv run twine check dist/*
 uv run python scripts/verify_distribution.py
 ```
-
-No repository, release, tag or PyPI publication is created by this checkout.
