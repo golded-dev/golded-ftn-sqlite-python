@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
@@ -103,6 +103,12 @@ def _message_from_row(
 
 
 class SqliteReader:
+    """Read undeleted messages for one area in msgno order.
+
+    Default streaming yields rows from a live cursor. Pass
+    ``ReaderOptions(eager=True)`` to load every message before returning.
+    """
+
     def __init__(self, area_code: str | None = None) -> None:
         self.area_code = area_code
 
@@ -111,7 +117,7 @@ class SqliteReader:
         path: str | PathLike[str],
         options: ReaderOptions | None = None,
     ) -> Iterable[ParsedMessage]:
-        del options
+        options = options or ReaderOptions()
         database_path = Path(path).resolve()
         connection = connect_database(database_path, read_only=True)
         try:
@@ -124,12 +130,32 @@ class SqliteReader:
                 ORDER BY msgno
                 """,
                 (area["id"],),
-            ).fetchall()
-            messages = tuple(
-                _message_from_row(connection, database_path, area, row) for row in rows
             )
+            if options.eager:
+                messages = tuple(
+                    _message_from_row(connection, database_path, area, row)
+                    for row in rows.fetchall()
+                )
+                connection.commit()
+                connection.close()
+                return messages
+            return self._stream(connection, database_path, area, rows)
+        except BaseException:
+            connection.rollback()
+            connection.close()
+            raise
+
+    @staticmethod
+    def _stream(
+        connection: sqlite3.Connection,
+        database_path: Path,
+        area: sqlite3.Row,
+        rows: sqlite3.Cursor,
+    ) -> Iterator[ParsedMessage]:
+        try:
+            for row in rows:
+                yield _message_from_row(connection, database_path, area, row)
             connection.commit()
-            return messages
         except BaseException:
             connection.rollback()
             raise

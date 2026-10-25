@@ -15,6 +15,7 @@ from golded_ftn import (
     MessagePatch,
     MessageProvenance,
     OutgoingMessage,
+    ReaderOptions,
     WriterOptions,
 )
 
@@ -80,6 +81,58 @@ def test_append_echomail_and_read_it_through_public_api(tmp_path: Path) -> None:
         datetime(2026, 10, 23, 12, 34, 56, tzinfo=UTC),
         0x101,
     )
+
+
+def test_reader_streams_by_default(tmp_path: Path) -> None:
+    path = tmp_path / "stream.sqlite3"
+    SqliteDatabase.create(
+        path,
+        area=AreaDefinition(
+            code="FIDO.SQLITE",
+            name="SQLite",
+            kind=AreaKind.ECHOMAIL,
+        ),
+    )
+    with SqliteWriter().open(path) as session:
+        session.append(
+            OutgoingMessage(
+                from_name="Alice",
+                to_name="All",
+                subject="Stream",
+                body_text="Yield rows from the cursor.",
+            )
+        )
+
+    messages = SqliteReader().read(path)
+
+    assert not isinstance(messages, tuple)
+    assert [message.subject for message in messages] == ["Stream"]
+
+
+def test_reader_can_load_messages_eagerly(tmp_path: Path) -> None:
+    path = tmp_path / "eager.sqlite3"
+    SqliteDatabase.create(
+        path,
+        area=AreaDefinition(
+            code="FIDO.SQLITE",
+            name="SQLite",
+            kind=AreaKind.ECHOMAIL,
+        ),
+    )
+    with SqliteWriter().open(path) as session:
+        session.append(
+            OutgoingMessage(
+                from_name="Alice",
+                to_name="All",
+                subject="Eager",
+                body_text="Load the snapshot before returning.",
+            )
+        )
+
+    messages = SqliteReader().read(path, ReaderOptions(eager=True))
+
+    assert isinstance(messages, tuple)
+    assert messages[0].subject == "Eager"
 
 
 def test_control_lines_routing_and_reply_links_keep_source_order(
