@@ -26,10 +26,10 @@ from .database import connect_database, format_address, parse_address, select_ar
 from .reader import _message_from_row
 
 
-def _identity(path: Path, area_code: str, msgno: int) -> MessageIdentity:
+def _identity(path: Path, area: str, msgno: int) -> MessageIdentity:
     return MessageIdentity(
         format="sqlite",
-        base=f"{path}#{area_code}",
+        base=f"{path}#{area}",
         msgno=msgno,
     )
 
@@ -86,8 +86,8 @@ def _revision(
 
 
 class SqliteWriter:
-    def __init__(self, area_code: str | None = None) -> None:
-        self.area_code = area_code
+    def __init__(self, area: str | None = None) -> None:
+        self.area = area
 
     def open(
         self,
@@ -95,16 +95,14 @@ class SqliteWriter:
         options: WriterOptions | None = None,
     ) -> SqliteSession:
         return SqliteSession(
-            Path(path).resolve(), self.area_code, options or WriterOptions()
+            Path(path).resolve(), self.area, options or WriterOptions()
         )
 
 
 class SqliteSession:
-    def __init__(
-        self, path: Path, area_code: str | None, options: WriterOptions
-    ) -> None:
+    def __init__(self, path: Path, area: str | None, options: WriterOptions) -> None:
         self.path = path
-        self.area_code = area_code
+        self.area = area
         self._connection = connect_database(
             path, read_only=False, timeout=options.lock_timeout
         )
@@ -132,7 +130,7 @@ class SqliteSession:
         connection = self._connection
         try:
             connection.execute("BEGIN IMMEDIATE")
-            area = select_area(connection, self.area_code)
+            area = select_area(connection, self.area)
             default_origin = parse_address(area["origin_address"])
             from_address = message.from_address or default_origin
             if area["kind"] == "netmail":
@@ -242,7 +240,7 @@ class SqliteSession:
         connection = self._connection
         try:
             connection.execute("BEGIN")
-            area = select_area(connection, self.area_code)
+            area = select_area(connection, self.area)
             row = connection.execute(
                 """
                 SELECT * FROM messages
@@ -275,7 +273,7 @@ class SqliteSession:
         connection = self._connection
         try:
             connection.execute("BEGIN IMMEDIATE")
-            area = select_area(connection, self.area_code)
+            area = select_area(connection, self.area)
             row = connection.execute(
                 """
                 SELECT * FROM messages
@@ -477,7 +475,7 @@ class SqliteSession:
         connection = self._connection
         try:
             connection.execute("BEGIN IMMEDIATE")
-            area = select_area(connection, self.area_code)
+            area = select_area(connection, self.area)
             row = connection.execute(
                 """
                 SELECT * FROM messages

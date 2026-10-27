@@ -83,7 +83,7 @@ def _message_from_row(
         reply_to_msgno=row["reply_to_msgno"],
         reply1st_msgno=row["reply1st_msgno"],
         reply_next_msgno=row["reply_next_msgno"],
-        area_code=area["code"],
+        area=area["code"],
         area_name=area["name"],
         area_sort_order=area["sort_order"],
         area_meta_key=area["meta_key"],
@@ -109,8 +109,8 @@ class SqliteReader:
     ``ReaderOptions(eager=True)`` to load every message before returning.
     """
 
-    def __init__(self, area_code: str | None = None) -> None:
-        self.area_code = area_code
+    def __init__(self, area: str | None = None) -> None:
+        self.area = area
 
     def read(
         self,
@@ -122,7 +122,7 @@ class SqliteReader:
         connection = connect_database(database_path, read_only=True)
         try:
             connection.execute("BEGIN")
-            area = select_area(connection, self.area_code)
+            area = select_area(connection, self.area)
             rows = connection.execute(
                 """
                 SELECT * FROM messages

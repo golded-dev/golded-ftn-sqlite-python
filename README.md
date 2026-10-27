@@ -1,10 +1,10 @@
 # golded-ftn-sqlite
 
 Repository: [`golded-ftn-sqlite-python`](https://github.com/golded-dev/golded-ftn-sqlite-python).
-Install version 1.0.0 with Python 3.12 or newer:
+Install version 1.1.0 with Python 3.12 or newer:
 
 ```sh
-python -m pip install golded-ftn-sqlite==1.0.0
+python -m pip install golded-ftn-sqlite==1.1.0
 ```
 
 `golded-ftn-sqlite` stores FTN netmail and echomail in SQLite through the
@@ -20,7 +20,7 @@ and recovery local, and limits the blast radius when a disk has opinions.
 `ftnt` treats export envelopes as write input for every format, including SQLite:
 
 ```sh
-ftnt create ./general.sqlite3 --format sqlite --area-code FIDO.GENERAL
+ftnt create ./general.sqlite3 --format sqlite --area FIDO.GENERAL
 ftnt export ./general --format jam |
   ftnt write ./general.sqlite3 --format sqlite --jsonl
 ```

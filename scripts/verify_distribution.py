@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -18,6 +19,7 @@ def run(arguments: list[str], directory: Path) -> None:
 
 
 def main() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
     (wheel,) = ROOT.joinpath("dist").glob("*.whl")
     (sdist,) = ROOT.joinpath("dist").glob("*.tar.gz")
     with zipfile.ZipFile(wheel) as archive:
@@ -25,7 +27,7 @@ def main() -> None:
         metadata_name = next(name for name in names if name.endswith("/METADATA"))
         metadata = email.message_from_bytes(archive.read(metadata_name))
         assert metadata["Name"] == "golded-ftn-sqlite"
-        assert metadata["Version"] == "1.0.0"
+        assert metadata["Version"] == project["version"]
         assert metadata["License-Expression"] == "MIT"
         assert any(name.endswith("/py.typed") for name in names)
         assert any(name.endswith("/licenses/LICENSE") for name in names)
