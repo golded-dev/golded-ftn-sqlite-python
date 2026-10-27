@@ -58,7 +58,7 @@ def test_append_echomail_and_read_it_through_public_api(tmp_path: Path) -> None:
         written.identity.format,
         written.identity.msgno,
         message.msgno,
-        message.area_code,
+        message.area,
         message.from_name,
         message.to_name,
         message.subject,
@@ -601,7 +601,7 @@ def test_multi_area_database_requires_selection_and_numbers_per_area(
         )
     )
 
-    with SqliteWriter("FIDO.SQLITE").open(path) as session:
+    with SqliteWriter(area="FIDO.SQLITE").open(path) as session:
         echo = session.append(
             OutgoingMessage(
                 from_name="Alice",
@@ -610,7 +610,7 @@ def test_multi_area_database_requires_selection_and_numbers_per_area(
                 body_text="Area one.",
             )
         )
-    with SqliteWriter("NETMAIL").open(path) as session:
+    with SqliteWriter(area="NETMAIL").open(path) as session:
         netmail = session.append(
             OutgoingMessage(
                 from_name="Alice",
@@ -621,13 +621,15 @@ def test_multi_area_database_requires_selection_and_numbers_per_area(
             )
         )
 
-    with pytest.raises(ValueError, match="area_code is required"):
+    with pytest.raises(ValueError, match="area is required"):
         tuple(SqliteReader().read(path))
     assert (
         echo.identity.msgno,
         netmail.identity.msgno,
-        tuple(message.subject for message in SqliteReader("FIDO.SQLITE").read(path)),
-        tuple(message.subject for message in SqliteReader("netmail").read(path)),
+        tuple(
+            message.subject for message in SqliteReader(area="FIDO.SQLITE").read(path)
+        ),
+        tuple(message.subject for message in SqliteReader(area="netmail").read(path)),
     ) == (1, 1, ("Echo",), ("Netmail",))
 
 

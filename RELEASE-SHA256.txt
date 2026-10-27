@@ -1,2 +1,2 @@
-4f9dc10e12dd24f19855a3791980c5d7b358bf5dfc05d70c284a90fa802d6557  dist/golded_ftn_sqlite-1.0.0-py3-none-any.whl
-7e974ec3f4236249b0bfac8c96bfb57ebf8ab852c209808023f42ef8a7ca0b01  dist/golded_ftn_sqlite-1.0.0.tar.gz
+444b63de70b56712fc1f467bf1645f9dd8a2a7e4e9e145b878e20c7ebb2ee180  dist/golded_ftn_sqlite-1.1.0-py3-none-any.whl
+c7a0a0887ccb266e3d2a4c612d673c3b54f53f8b0be33efc0cab059a1820e6d1  dist/golded_ftn_sqlite-1.1.0.tar.gz

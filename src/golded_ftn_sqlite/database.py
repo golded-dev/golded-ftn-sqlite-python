@@ -153,8 +153,9 @@ class SqliteDatabase:
         database_path.parent.mkdir(parents=True, exist_ok=True)
         descriptor = os.open(database_path, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
         os.close(descriptor)
+        connection = sqlite3.connect(database_path)
         try:
-            with sqlite3.connect(database_path) as connection:
+            with connection:
                 connection.execute("PRAGMA journal_mode = WAL")
                 connection.execute("PRAGMA synchronous = NORMAL")
                 connection.executescript(_SCHEMA)
@@ -176,35 +177,45 @@ class SqliteDatabase:
         except BaseException:
             database_path.unlink(missing_ok=True)
             raise
+        finally:
+            connection.close()
         return cls(database_path)
 
     def add_area(self, area: AreaDefinition) -> None:
-        with sqlite3.connect(self.path) as connection:
-            connection.execute(
-                """
-                INSERT INTO areas (
-                    code, name, kind, sort_order, meta_key, origin_address
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    area.code,
-                    area.name,
-                    area.kind.value,
-                    area.sort_order,
-                    area.meta_key,
-                    format_address(area.default_origin),
-                ),
-            )
+        connection = sqlite3.connect(self.path)
+        try:
+            with connection:
+                connection.execute(
+                    """
+                    INSERT INTO areas (
+                        code, name, kind, sort_order, meta_key, origin_address
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        area.code,
+                        area.name,
+                        area.kind.value,
+                        area.sort_order,
+                        area.meta_key,
+                        format_address(area.default_origin),
+                    ),
+                )
+        finally:
+            connection.close()
 
     def areas(self) -> tuple[AreaDefinition, ...]:
-        with sqlite3.connect(self.path) as connection:
-            rows = connection.execute(
-                """
-                SELECT code, name, kind, sort_order, meta_key, origin_address
-                FROM areas
-                ORDER BY id
-                """
-            ).fetchall()
+        connection = sqlite3.connect(self.path)
+        try:
+            with connection:
+                rows = connection.execute(
+                    """
+                    SELECT code, name, kind, sort_order, meta_key, origin_address
+                    FROM areas
+                    ORDER BY id
+                    """
+                ).fetchall()
+        finally:
+            connection.close()
         return tuple(
             AreaDefinition(
                 code=row[0],
@@ -243,15 +254,15 @@ def connect_database(
     return connection
 
 
-def select_area(connection: sqlite3.Connection, area_code: str | None) -> sqlite3.Row:
-    if area_code is not None:
+def select_area(connection: sqlite3.Connection, area: str | None) -> sqlite3.Row:
+    if area is not None:
         row = connection.execute(
-            "SELECT * FROM areas WHERE code = ?", (area_code,)
+            "SELECT * FROM areas WHERE code = ?", (area,)
         ).fetchone()
         if row is None:
-            raise KeyError(f"unknown area [{area_code}]")
+            raise KeyError(f"unknown area [{area}]")
         return cast(sqlite3.Row, row)
     rows = connection.execute("SELECT * FROM areas ORDER BY id LIMIT 2").fetchall()
     if len(rows) != 1:
-        raise ValueError("area_code is required unless the database has one area")
+        raise ValueError("area is required unless the database has one area")
     return cast(sqlite3.Row, rows[0])
